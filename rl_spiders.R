@@ -11,6 +11,8 @@
 ######################################################################################################
 
 library(red) ## load packages
+library(reshape)
+
 paper <- read.csv("occurrence.txt", sep="\t", header = TRUE) ## read in paper data
 paper <- paper[!is.na(paper$decimalLatitude),] # remove rows with no georef data
 names <- as.vector(unique(paper$scientificName)) ## extract unique names from paper data
@@ -115,6 +117,5 @@ colnames(paperEOO)[which(names(paperEOO) == "V2")] <- "paperEOO"
 colnames(GBIFdat)[which(names(GBIFdat) == "V2")] <- "gbifEOO"
 colnames(mergeddat)[which(names(mergeddat) == "V2")] <- "mergedEOO"
 
-EOO_final <- merge(merge(paperEOO, GBIFdat), mergeddat)
-
-
+EOO_final <- merge(merge(paperEOO, GBIFdat), mergeddat)  ## create final dataframe
+EOO_final_tall <- melt(EOO_final, id=c("V1"))
