@@ -1,23 +1,22 @@
+######################################################################################################
 ## Retrieves GBIF record data for a set of taxa, calculates extent of occurrence for the list
 ## and compares the calculation to distribution data gathered from literature as distinct groups
 ## and as a composite dataset.
 ## 
-## Author: V. Shirey, Oct. 18, 2017
+## Author: V. Shirey, Oct. 18, 2017         Last Update: March 23, 2019
+######################################################################################################
+
+######################################################################################################
+# Load data and libraries
+######################################################################################################
 
 library(red) ## load packages
+paper <- read.csv("occurrence.txt", sep="\t", header = TRUE) ## read in paper data
+names <- unique(paper$scientificName) ## extract unique names from paper data
 
-names <- read.csv(file.choose(), sep=",", header = TRUE) ## read in names
-paper <- read.csv(file.choose(), sep=";", header = TRUE) ## read in paper data
-
-## process namelist to characters
-names[] <- lapply(names, as.character)
-
-## process paper data to remove records where coordinate data is invalid or missing
-paper$decimalLatitude <- as.numeric(levels(paper$decimalLatitude))[paper$decimalLatitude]
-paper$decimalLongitude <- as.numeric(levels(paper$decimalLongitude))[paper$decimalLongitude]
-paper <- na.omit(paper) ## omit records with incomplete data, should be 2525 records total
-
-## iteratively retrieve lat/lon record data for each species from GBIF and populate matrix
+######################################################################################################
+# Iterate through unique names and grab records from GBIF via 'red' library
+######################################################################################################
 iterations = nrow(names)
 datalist = list()
 
@@ -33,7 +32,7 @@ for(i in 1:iterations){
   
   datalist[[i]] <- temp1
   
-} ## iteratively progress through the name list while retrieving records from GBIF
+}
 
 dat = do.call(rbind, datalist) ## merge all occurrence data from GBIF into one data frame
 dat <- unique(dat)
