@@ -7,63 +7,67 @@
 ######################################################################################################
 
 ######################################################################################################
-# Load data and libraries
+# Load and clean data and libraries
 ######################################################################################################
 
 library(red) ## load packages
 paper <- read.csv("occurrence.txt", sep="\t", header = TRUE) ## read in paper data
-names <- unique(paper$scientificName) ## extract unique names from paper data
+paper <- paper[!is.na(paper$decimalLatitude),] # remove rows with no georef data
+names <- as.vector(unique(paper$scientificName)) ## extract unique names from paper data
+paper$decimalLatitude <- as.numeric(paper$decimalLatitude)
+paper$decimalLongitude <- as.numeric(paper$decimalLongitude)
 
 ######################################################################################################
 # Iterate through unique names and grab records from GBIF via 'red' library
 ######################################################################################################
-iterations = nrow(names)
+iterations = length(names)
 datalist = list()
 
 temp1 <- data.frame() ## temporary data frame for joining occurrence data from GBIF
 temp2 <- data.frame()
 
 for(i in 1:iterations){
-  gbif <- names[i,] ## grab names
+  taxon <- names[i] ## grab names
 
   temp1 <- data.frame()
-  try(temp1 <- records(gbif))
-  try(temp1$V1 <- gbif)
+  try(temp1 <- records(taxon))  ## try getting records from GBIF
+  try(temp1$V1 <- taxon)
   
   datalist[[i]] <- temp1
   
 }
 
 dat = do.call(rbind, datalist) ## merge all occurrence data from GBIF into one data frame
-dat <- unique(dat)
-colnames(paper) <- colnames(dat)
+dat <- unique(dat) ## obtain only unique records for each species
 
-## iteratively calculate eoo for each record associated with papers only
-i = 1 ## reset counter
+######################################################################################################
+# Iterate through each species and calculate EOO using 'red' from just the paper data
+######################################################################################################
 temp2 <- data.frame() ## reset temp variables
 temp3 <- data.frame()
 datalist = list()
 
 for(i in 1:iterations){
-  temp1 <- names[i,] ## grab names
+  temp1 <- names[i] ## grab names
   
   try(temp2[i,1] <- temp1)
-  try(temp2[i,2] <- eoo(as.matrix(paper[which(paper[,3]==temp1), c(1,2)])))
+  try(temp2[i,2] <- eoo(as.matrix(paper[which(paper[,13]==temp1), c(9,8)])))
   
   datalist[[i]] <- temp2
 }
 
-paperdat <- do.call(rbind, datalist)
-paperdat <- unique(paperdat)
+paperEOO <- do.call(rbind, datalist)
+paperEOO <- unique(paperEOO)
 
-## iteratively calculate eoo for the GBIF data only
-i = 1 ## reset counter
+######################################################################################################
+# Iterate through each species and calculate EOO using 'red' from just the GBIF data
+######################################################################################################
 temp2 <- data.frame() ## reset temp variables
 temp3 <- data.frame()
 datalist = list()
 
 for(i in 1:iterations){
-  temp1 <- names[i,] ## grab names
+  temp1 <- names[i] ## grab names
   
   try(temp2[i,1] <- temp1)
   try(temp2[i,2] <- eoo(as.matrix(dat[which(dat[,3]==temp1), c(1,2)])))
@@ -74,30 +78,43 @@ for(i in 1:iterations){
 GBIFdat <- do.call(rbind, datalist)
 GBIFdat <- unique(GBIFdat)
 
-## iteratively calculate eoo for the merged data of both GBIF and papers
-i = 1 ## reset counter
-temp1 <- data.frame() 
-temp2 <- data.frame() ## reset temp variables
+######################################################################################################
+# Iterate through each species and calculate EOO using 'red' from both datasets
+######################################################################################################
+temp1 <- data.frame() ## reset temp variables
+temp2 <- data.frame() 
 temp3 <- data.frame()
 datalist = list()
 
-mdat <- rbind(paper, dat)
+colnames(dat)[which(names(dat) == "V1")] <- "scientificName"
+colnames(dat)[which(names(dat) == "long")] <- "decimalLongitude"
+colnames(dat)[which(names(dat) == "lat")] <- "decimalLatitude"
+
+common_cols <- intersect(colnames(paper), colnames(dat)) ## bind the datasets
+mdat <- rbind(
+  paper[,common_cols],
+  dat[,common_cols]
+)  
 
 for(i in 1:iterations){
-  temp1[i,1] <- names[i,1] ## grab names
+  name <- names[i] ## grab names
   
-  try(temp2[i,1] <- names[i,1])
-  try(temp2[i,2] <- eoo(as.matrix(mdat[which(mdat$V1==names[i,1]), c(1,2)])))
-  try(temp3 <- merge(temp1, temp2, by.x = "V1", by.y = "V1"))
+  try(temp2[i,1] <- name)
+  try(temp2[i,2] <- eoo(as.matrix(mdat[which(mdat$scientificName==name), c(2,1)])))
   
-  datalist[[i]] <- temp3
+  datalist[[i]] <- temp2
 }
 
 mergeddat <- do.call(rbind, datalist)
 mergeddat <- unique(mergeddat)
 
-## write 3 CVS with data
+######################################################################################################
+# Rename columns from calculations and merge into new combined, dataframe
+######################################################################################################
+colnames(paperEOO)[which(names(paperEOO) == "V2")] <- "paperEOO"
+colnames(GBIFdat)[which(names(GBIFdat) == "V2")] <- "gbifEOO"
+colnames(mergeddat)[which(names(mergeddat) == "V2")] <- "mergedEOO"
 
-write.csv(mergeddat, "merged_eoo.csv")
-write.csv(GBIFdat, "GBIF_eoo.csv")
-write.csv(paperdat, "paper_eoo.csv")
+EOO_final <- merge(merge(paperEOO, GBIFdat), mergeddat)
+
+
