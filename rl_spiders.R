@@ -119,3 +119,5 @@ colnames(mergeddat)[which(names(mergeddat) == "V2")] <- "mergedEOO"
 
 EOO_final <- merge(merge(paperEOO, GBIFdat), mergeddat)  ## create final dataframe
 EOO_final_tall <- melt(EOO_final, id=c("V1"))
+
+write.csv(EOO_final, file="output.csv")
